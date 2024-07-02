@@ -3,8 +3,15 @@ package main
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/aviate-labs/agent-go/certification"
+	ii "github.com/aviate-labs/agent-go/certification/ii"
+	"github.com/aviate-labs/agent-go/ic"
+	"github.com/aviate-labs/agent-go/principal"
 )
 
 var challenge [32]byte
@@ -50,23 +57,38 @@ func main() {
 		var m struct {
 			Challenge  string `json:"challenge"`
 			Delegation struct {
-				Kind        string `json:"kind"`
-				Delegations []struct {
-					Delegation struct {
-						PubKey     string `json:"pubkey"`
-						Expiration string `json:"expiration"`
-					}
-					Signature string `json:"signature"`
-				} `json:"delegations"`
-				UserPublicKey string `json:"userPublicKey"`
-				AuthnMethod   string `json:"authnMethod"`
+				Kind          string                `json:"kind"`
+				Delegations   []ii.SignedDelegation `json:"delegations"`
+				UserPublicKey ii.HexString          `json:"userPublicKey"`
+				AuthnMethod   string                `json:"authnMethod"`
 			} `json:"delegation"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
 			http.Error(w, "Bad request", http.StatusBadRequest)
 			return
 		}
-		_ = m // TODO:validate delegation and signature
+		dc := ii.DelegationChain{
+			Delegations: m.Delegation.Delegations,
+			PublicKey:   m.Delegation.UserPublicKey,
+		}
+		rawChallenge, _ := base64.StdEncoding.DecodeString(m.Challenge)
+		rootKey, _ := hex.DecodeString(certification.RootKey)
+		if err := dc.VerifyChallenge(
+			rawChallenge,
+			uint64(time.Now().UnixNano()),
+			ic.IDENTITY_PRINCIPAL,
+			rootKey,
+		); err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		}
+		payload, err := json.Marshal(map[string]any{
+			"principal": principal.NewSelfAuthenticating([]byte(m.Delegation.UserPublicKey)).String(),
+		})
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write(payload)
 	})
 	_ = http.ListenAndServe(":8123", nil)
 }

@@ -1,3 +1,5 @@
+import {AuthClient} from "@dfinity/auth-client";
+
 interface AuthReadyMessage {
     kind: "authorize-ready";
 }
@@ -18,8 +20,6 @@ interface AuthResponseSuccess {
 async function login(
     sessionPublicKey: Uint8Array,
 ): Promise<AuthResponseSuccess> {
-    console.log(sessionPublicKey);
-
     const u = new URL("https://identity.ic0.app/");
     u.hash = "#authorize";
     const popup = window.open(u, "ii-window", "width=400,height=400");
@@ -62,13 +62,34 @@ async function login(
         } else {
             console.log("Received authorize message.")
             popup.close();
-            console.log(authorizeMessageData);
             return authorizeMessageData;
         }
     }
 }
 
 window.onload = async () => {
+    const debugLoginButton = document.getElementById("debug-login")!;
+    debugLoginButton.addEventListener("click", async () => {
+        const client = await AuthClient.create();
+        if (!await client.isAuthenticated()) {
+            await client.login({
+                identityProvider: "https://identity.ic0.app",
+                onSuccess: async () => {
+                    console.log("Logged in!");
+                    const identity = await client.getIdentity();
+                    const principal = identity.getPrincipal();
+                    console.log("Principal", principal.toText());
+                },
+                onError: (err) => {
+                    console.error("Error logging in", err);
+                },
+            });
+        }
+        const identity = await client.getIdentity();
+        const principal = identity.getPrincipal();
+        console.log("Principal", principal.toText());
+    })
+
     const loginButton = document.getElementById("login")!;
     loginButton.addEventListener("click", async () => {
         const challengeResp = await fetch("http://localhost:8123/challenge");
@@ -96,5 +117,10 @@ window.onload = async () => {
                 return v;
             }),
         });
+        if (resp.ok) {
+            const {principal} = await resp.json();
+            loginButton.innerText = "Logged in!";
+            document.getElementById("principal")!.innerText = principal;
+        }
     })
 }

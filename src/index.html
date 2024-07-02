@@ -1,10 +1,37 @@
 <html>
 <head>
     <title>Login w/ II</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: "Space Grotesk", sans-serif;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #root {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+    </style>
 </head>
 <body>
 <div id="root">
-    <button id="login">Login w/ II</button>
+    <button id="login">Login w/ Internet Identity</button>
+    <p id="principal"></p>
+    <hr/>
+    <button id="debug-login">DEBUG Login</button>
 </div>
 <script type="module" src="./index.ts"></script>
 </body>
